@@ -1,1 +1,455 @@
-Working on v1 rn
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Tag Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            background-image: linear-gradient(to right, #1a1a2e, #1f4068, #1a1a2e);
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        h1 {
+            color: #e0e0e0;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        canvas {
+            background-color: #2c2c54;
+            border: 4px solid #4a4e69;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            cursor: none;
+            touch-action: none; /* Prevent default touch behavior */
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .controls button {
+            background-color: #6a1b9a;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s, background-color 0.2s;
+            text-transform: uppercase;
+        }
+
+        .controls button:hover {
+            background-color: #4a148c;
+            transform: translateY(-2px);
+        }
+
+        .controls button:active {
+            transform: translateY(0);
+        }
+
+        .info {
+            background-color: #2c2c54;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .info h2 {
+            margin-top: 0;
+            color: #a0a0ff;
+        }
+
+        .info ul {
+            padding-left: 20px;
+        }
+
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 25px 40px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        .message-box h2 {
+            margin-top: 0;
+            font-size: 24px;
+            color: #e0e0e0;
+        }
+
+        .message-box p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        .message-box button {
+            background-color: #e6522c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin-top: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .message-box button:hover {
+            background-color: #b33e1e;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                gap: 10px;
+            }
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .controls button {
+                width: 100%;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            .info {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>2D Tag Game</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div class="controls">
+        <button id="singlePlayerBtn">Single Player</button>
+        <button id="multiPlayerBtn">Local Multiplayer</button>
+    </div>
+    <div class="info">
+        <h2>How to Play</h2>
+        <div id="instructions">
+            <p>Select a game mode to begin.</p>
+        </div>
+    </div>
+</div>
+
+<div class="message-box" id="messageBox">
+    <h2 id="messageTitle"></h2>
+    <p id="messageText"></p>
+    <button id="messageClose">OK</button>
+</div>
+
+<script>
+    window.onload = function() {
+        // --- Canvas Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Game State Variables ---
+        let gameActive = false;
+        let players = [];
+        let taggerIndex = 0;
+        let gameMode = ''; // 'single' or 'multi'
+        const playerRadius = 20;
+        const speed = 3.5;
+        const gameDuration = 60000; // 60 seconds
+        let gameStartTime;
+
+        // --- UI Elements ---
+        const singlePlayerBtn = document.getElementById('singlePlayerBtn');
+        const multiPlayerBtn = document.getElementById('multiPlayerBtn');
+        const instructionsDiv = document.getElementById('instructions');
+        const messageBox = document.getElementById('messageBox');
+        const messageTitle = document.getElementById('messageTitle');
+        const messageText = document.getElementById('messageText');
+        const messageClose = document.getElementById('messageClose');
+
+        // --- Input Handling ---
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // --- Utility Functions ---
+        function showMessage(title, text) {
+            messageTitle.textContent = title;
+            messageText.textContent = text;
+            messageBox.style.display = 'block';
+        }
+
+        function hideMessage() {
+            messageBox.style.display = 'none';
+        }
+
+        // --- Player Class ---
+        class Player {
+            constructor(x, y, color, controls, isAI = false) {
+                this.x = x;
+                this.y = y;
+                this.dx = 0;
+                this.dy = 0;
+                this.color = color;
+                this.controls = controls;
+                this.isAI = isAI;
+                this.score = 0;
+            }
+
+            draw(isTagger) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, playerRadius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.lineWidth = 3;
+                if (isTagger) {
+                    ctx.strokeStyle = '#e6522c'; // Tagger color
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = 'white';
+                    ctx.stroke();
+                }
+                ctx.closePath();
+            }
+
+            update() {
+                if (this.isAI) {
+                    this.updateAI();
+                } else {
+                    this.updateHuman();
+                }
+
+                // Update position
+                this.x += this.dx;
+                this.y += this.dy;
+
+                // Wall collision detection
+                if (this.x < playerRadius) this.x = playerRadius;
+                if (this.x > canvas.width - playerRadius) this.x = canvas.width - playerRadius;
+                if (this.y < playerRadius) this.y = playerRadius;
+                if (this.y > canvas.height - playerRadius) this.y = canvas.height - playerRadius;
+            }
+
+            updateHuman() {
+                this.dx = 0;
+                this.dy = 0;
+                if (keys[this.controls.up]) this.dy = -speed;
+                if (keys[this.controls.down]) this.dy = speed;
+                if (keys[this.controls.left]) this.dx = -speed;
+                if (keys[this.controls.right]) this.dx = speed;
+            }
+
+            updateAI() {
+                const tagger = players[taggerIndex];
+                let target;
+                if (this === tagger) {
+                    // AI is the tagger, chase the nearest non-tagger
+                    let nearestPlayer = null;
+                    let minDistance = Infinity;
+                    players.forEach((player, index) => {
+                        if (index !== taggerIndex) {
+                            const dist = Math.hypot(this.x - player.x, this.y - player.y);
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                nearestPlayer = player;
+                            }
+                        }
+                    });
+                    target = nearestPlayer;
+                } else {
+                    // AI is not the tagger, run away from the tagger
+                    target = tagger;
+                }
+
+                if (target) {
+                    const angle = Math.atan2(target.y - this.y, target.x - this.x);
+                    const isTagger = (this === tagger);
+                    const direction = isTagger ? 1 : -1; // Chase or flee
+
+                    this.dx = direction * speed * Math.cos(angle);
+                    this.dy = direction * speed * Math.sin(angle);
+                }
+            }
+        }
+
+        // --- Game Logic Functions ---
+        function startGame() {
+            gameActive = true;
+            gameStartTime = Date.now();
+            instructionsDiv.innerHTML = getInstructions();
+            // Start a new tagger.
+            taggerIndex = Math.floor(Math.random() * players.length);
+            gameLoop();
+        }
+
+        function resetGame(mode) {
+            gameMode = mode;
+            players = [];
+            
+            if (mode === 'single') {
+                players.push(new Player(100, 300, '#a0a0ff', { up: 'w', down: 's', left: 'a', right: 'd' }));
+                players.push(new Player(700, 300, '#ff69b4', null, true));
+                players.push(new Player(400, 100, '#00bfa5', null, true));
+                players.push(new Player(400, 500, '#f1c40f', null, true));
+            } else if (mode === 'multi') {
+                players.push(new Player(100, 300, '#a0a0ff', { up: 'w', down: 's', left: 'a', right: 'd' }));
+                players.push(new Player(700, 300, '#ff69b4', { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' }));
+                players.push(new Player(400, 100, '#00bfa5', null, true));
+            }
+            startGame();
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            // Update scores
+            players.forEach((player, index) => {
+                if (index !== taggerIndex) {
+                    player.score++;
+                }
+            });
+
+            // Update player positions
+            players.forEach(player => player.update());
+
+            // Check for tagging
+            const tagger = players[taggerIndex];
+            players.forEach((player, index) => {
+                if (index !== taggerIndex) {
+                    const distance = Math.hypot(tagger.x - player.x, tagger.y - player.y);
+                    if (distance < playerRadius * 2) {
+                        // Tag!
+                        taggerIndex = index;
+                    }
+                }
+            });
+
+            // Check if game time is over
+            if (Date.now() - gameStartTime > gameDuration) {
+                endGame();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#2c2c54';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            players.forEach((player, index) => {
+                player.draw(index === taggerIndex);
+            });
+
+            // Draw timer and score
+            if (gameActive) {
+                const timeLeft = Math.max(0, Math.ceil((gameDuration - (Date.now() - gameStartTime)) / 1000));
+                ctx.fillStyle = '#e0e0e0';
+                ctx.font = '24px "Roboto", sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`Time: ${timeLeft}`, canvas.width - 20, 40);
+
+                ctx.textAlign = 'left';
+                players.forEach((player, index) => {
+                    ctx.fillStyle = player.color;
+                    ctx.fillText(`P${index + 1}: ${player.score}`, 20, 40 + index * 30);
+                });
+            }
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function endGame() {
+            gameActive = false;
+            let winnerIndex = -1;
+            let highestScore = -1;
+            
+            // Find the player who was tagged the least (lowest score)
+            players.forEach((player, index) => {
+                if (winnerIndex === -1 || player.score < highestScore) {
+                    highestScore = player.score;
+                    winnerIndex = index;
+                }
+            });
+            
+            showMessage('Game Over!', `Player ${winnerIndex + 1} wins with the lowest time as tagger (${highestScore} seconds)!`);
+        }
+
+        function getInstructions() {
+            if (gameMode === 'single') {
+                return `
+                    <h2>Instructions</h2>
+                    <ul>
+                        <li>You are Player 1 (blue).</li>
+                        <li>Use W, A, S, D to move.</li>
+                        <li>Avoid the player with the red outline. If they tag you, you become "it"!</li>
+                        <li>The player with the least time as "it" at the end of the game wins.</li>
+                    </ul>
+                `;
+            } else if (gameMode === 'multi') {
+                return `
+                    <h2>Instructions</h2>
+                    <ul>
+                        <li>Player 1 (blue) uses W, A, S, D.</li>
+                        <li>Player 2 (pink) uses the Arrow Keys.</li>
+                        <li>Avoid the player with the red outline. If they tag you, you become "it"!</li>
+                        <li>The player with the least time as "it" at the end of the game wins.</li>
+                    </ul>
+                `;
+            }
+        }
+
+        // --- Event Listeners ---
+        singlePlayerBtn.addEventListener('click', () => resetGame('single'));
+        multiPlayerBtn.addEventListener('click', () => resetGame('multi'));
+        messageClose.addEventListener('click', hideMessage);
+    };
+</script>
+
+</body>
+</html>
